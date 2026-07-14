@@ -49,3 +49,4 @@ For exact commands and troubleshooting, consult the relevant skill guide and the
 - Dividers (`---`) MUST NOT exist before a Markdown heading (`# …`, `## …`…). In other words, this is an ILLEGAL usage of Markdown dividers.
 - Markdown headings MUST NOT be numbered. Markdown headings are designed without numbers, so you should not go against its design propose.
 - Avoid hardcoding version numbers, paths, or commands that will stale. Defer to `Project.swift`, `mise.toml`, and the relevant skill guides for specifics.
+- If network errors occur, you MUST retry for at least 3 times before giving up or switching to a different approach.

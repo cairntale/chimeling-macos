@@ -8,9 +8,9 @@ let project = Project(
             destinations: .macOS,
             product: .app,
             bundleId: "com.cairntale.Chimeling",
-            infoPlist: .default,
-            sources: ["Sources/**"],
-            resources: ["Resources/**"],
+            deploymentTargets: .macOS("15.0"),
+            infoPlist: .extendingDefault(with: ["LSUIElement": true]),
+            buildableFolders: ["Sources", "Resources"],
             dependencies: []
         ),
     ]
