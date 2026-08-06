@@ -5,3 +5,5 @@ tuist = "4.202.1"
 
 [tasks]
 format = "oxfmt && swiftformat ."
+generate = "tuist generate"
+build = "tuist xcodebuild build"

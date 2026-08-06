@@ -30,10 +30,10 @@ Activate the following skills when the situation matches their description:
 After cloning the repository:
 
 - Install the pinned tools with `mise install`.
-- Generate the Xcode workspace with `mise x tuist -- tuist generate`.
+- Generate the Xcode workspace with `mise run generate`. Use `mise run generate --no-open` to avoid opening Xcode automatically.
 - Develop in `Sources/` and `Resources/`.
 - Regenerate the project whenever `Project.swift` or the dependency graph changes.
-- Build and test through the generated workspace using `mise x tuist -- tuist xcodebuild build` or Xcode.
+- Build and test through the generated workspace using `mise run build` or Xcode.
 - Archive and distribute through Xcode or CI after configuring signing, entitlements, and provisioning.
 
 For exact commands and troubleshooting, consult the relevant skill guide and the Tuist documentation.
