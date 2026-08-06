@@ -4,15 +4,15 @@
 
 Chimeling is a native macOS application built with Swift and managed with [Tuist](https://tuist.dev). The repository holds the Tuist manifest, the generated Xcode project files, and the source and resource directories.
 
-| Path | Purpose |
-|------|---------|
-| `Project.swift` | Tuist project manifest and source of truth for targets, dependencies, and build settings. |
-| `mise.toml` | Tool version pinning. |
-| `Sources/` | Application Swift source files. |
-| `Resources/` | Application resources such as assets, storyboards, and localizations. |
-| `Chimeling.xcodeproj/` | Generated Xcode project. |
-| `Chimeling.xcworkspace/` | Generated Xcode workspace. |
-| `.agents/skills/` | Agent skill guides for working in this project. |
+| Path                     | Purpose                                                                                   |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| `Project.swift`          | Tuist project manifest and source of truth for targets, dependencies, and build settings. |
+| `mise.toml`              | Tool version pinning.                                                                     |
+| `Sources/`               | Application Swift source files.                                                           |
+| `Resources/`             | Application resources such as assets, storyboards, and localizations.                     |
+| `Chimeling.xcodeproj/`   | Generated Xcode project.                                                                  |
+| `Chimeling.xcworkspace/` | Generated Xcode workspace.                                                                |
+| `.agents/skills/`        | Agent skill guides for working in this project.                                           |
 
 ## Skills
 
