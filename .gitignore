@@ -71,3 +71,6 @@ Tuist/.build
 
 ### Agent Skills
 .agents/skills/
+
+### xcconfig
+Configurations/*.xcconfig

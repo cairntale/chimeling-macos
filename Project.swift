@@ -11,7 +11,16 @@ let project = Project(
             deploymentTargets: .macOS("15.0"),
             infoPlist: .extendingDefault(with: ["LSUIElement": true]),
             buildableFolders: ["Sources", "Resources"],
-            dependencies: []
+            dependencies: [],
+            settings: .settings(
+              base: [
+                "DEVELOPMENT_TEAM": "$(CHIMELING_DEVELOPMENT_TEAM)",
+              ],
+              configurations: [
+                .debug(name: "Debug", xcconfig: "Configurations/Debug.xcconfig"),
+                .release(name: "Release", xcconfig: "Configurations/Release.xcconfig"),
+              ]
+            )
         ),
     ]
 )
