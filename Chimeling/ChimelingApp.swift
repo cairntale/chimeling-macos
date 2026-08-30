@@ -12,7 +12,7 @@ struct ChimelingApp: App {
 
             Divider()
 
-            Button("Quit Chimeling") {
+            Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }
             .keyboardShortcut("q")
