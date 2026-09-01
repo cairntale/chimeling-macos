@@ -4,6 +4,7 @@ import SwiftUI
 
 struct AccountSettingsSection: View {
     @Environment(Clerk.self) private var clerk
+    @Environment(PresenceService.self) private var presenceService
     @State private var isConfirmingSignOut = false
     @State private var isShowingSignInError = false
     @State private var signInErrorMessage = ""
@@ -33,7 +34,7 @@ struct AccountSettingsSection: View {
         ) {
             Button("Sign Out", role: .destructive) {
                 Task {
-                    try? await clerk.auth.signOut()
+                    await presenceService.signOut()
                 }
             }
         } message: {
