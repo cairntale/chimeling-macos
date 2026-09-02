@@ -2,7 +2,7 @@
 set -eu
 
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
-dest="$root/Chimeling/SDK/openapi.yaml"
+dest="$root/Chimeling/Core/SDK/openapi.yaml"
 url="https://chimeling.app/api/doc.yaml"
 
 mkdir -p "$(dirname "$dest")"
