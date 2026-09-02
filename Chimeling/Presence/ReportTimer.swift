@@ -116,14 +116,7 @@ final class ReportTimer {
             case .success:
                 retryDelay = PresenceTiming.retryStart
                 cancelRetry()
-            case .failure(.auth):
-                signedIn = false
-                cancelRetry()
-                cancelHeartbeat()
-                onFinished?(result)
-                breakLoop()
-                return
-            case .failure(.failed):
+            case .failure:
                 scheduleRetry()
                 onFinished?(result)
                 breakLoop()

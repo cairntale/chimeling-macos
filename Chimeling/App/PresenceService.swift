@@ -142,9 +142,6 @@ final class PresenceService {
             lastError = nil
         case .failure(let error):
             lastError = error
-            if case .auth = error {
-                signedIn.value = false
-            }
             Self.log.warning("presence report failed: \(error.message, privacy: .public)")
         }
     }

@@ -16,10 +16,10 @@ struct MenuBarContent: View {
                 }
             }
             Divider()
-        } else if case .failed(let message) = service.lastError {
+        } else if let error = service.lastError {
             Button(action: {}) {
                 Label {
-                    Text(message)
+                    Text(error.message)
                 } icon: {
                     Image(nsImage: MenuStatusDot.red)
                 }
