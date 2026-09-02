@@ -27,5 +27,6 @@ xcodebuild build \
 	-configuration Debug \
 	-destination 'platform=macOS' \
 	-clonedSourcePackagesDirPath SourcePackages \
+	-skipPackagePluginValidation \
 	CODE_SIGNING_ALLOWED=NO \
 	| beautify
