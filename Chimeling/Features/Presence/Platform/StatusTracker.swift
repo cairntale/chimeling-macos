@@ -54,6 +54,7 @@ final class StatusTracker {
     }
 
     private func applySessionState() {
+        // TODO: Add idle detection (inactivity polling) so presence can report idle after the user steps away.
         if SessionState.isActive {
             livePresence.setStatus(.online)
         } else {

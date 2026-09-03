@@ -89,7 +89,8 @@ final class Registration {
             try cache.setDeviceName(name)
             nameSynced = true
         case .notFound:
-            return
+            try await invalidateDevice()
+            nameSynced = true
         case .unauthorized:
             throw RegistrationError.unauthorized
         case .conflict, .unprocessable, .failure:
