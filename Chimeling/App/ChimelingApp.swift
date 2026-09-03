@@ -38,7 +38,7 @@ struct ChimelingApp: App {
     /// 804pt SVG canvas; MenuBarExtra ignores SwiftUI `.frame`, so size the NSImage instead.
     private static let menuBarIcon: NSImage = {
         let image = (NSImage(named: "MenuBarIcon")?.copy() as? NSImage) ?? NSImage()
-        image.size = NSSize(width: 18, height: 18)
+        image.size = NSSize(width: 16, height: 16)
         image.isTemplate = true
         return image
     }()
