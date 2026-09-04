@@ -26,13 +26,13 @@ final class PresenceService {
         let livePresence = LivePresence()
         let icons = AppIconProvider()
         let cache = RegistrationCache()
-        let api = ChimelingAPI()
-        let registration = Registration(api: api, cache: cache, icons: icons)
+        let client = makeClient()
+        let registration = Registration(client: client, cache: cache, icons: icons)
         let signedIn = SignInState()
         let runner = ReportRunner(
             livePresence: livePresence,
             registration: registration,
-            api: api,
+            client: client,
             isSignedIn: { signedIn.value }
         )
         let timer = ReportTimer(livePresence: livePresence, runner: runner)
@@ -105,9 +105,6 @@ final class PresenceService {
 
     private func applySignIn(_ isSignedIn: Bool) async {
         signedIn.value = isSignedIn
-        if !isSignedIn {
-            lastError = nil
-        }
         if isSignedIn {
             do {
                 try await registration.syncDeviceName()

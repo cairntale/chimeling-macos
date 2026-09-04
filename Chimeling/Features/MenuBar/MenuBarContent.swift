@@ -7,7 +7,8 @@ struct MenuBarContent: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        if clerk.session == nil {
+        let signedOut = clerk.session == nil
+        if signedOut {
             Button(action: signIn) {
                 Label {
                     Text("Sign in…")
@@ -15,16 +16,19 @@ struct MenuBarContent: View {
                     Image(nsImage: MenuStatusDot.blue)
                 }
             }
-            Divider()
-        } else if let error = service.lastError {
-            Button(action: {}) {
+        }
+        if let error = service.lastError {
+            Button {
+                PresenceErrorAlert.present(message: error.message)
+            } label: {
                 Label {
-                    Text(error.message)
+                    Text("An error occurred")
                 } icon: {
                     Image(nsImage: MenuStatusDot.red)
                 }
             }
-            .disabled(true)
+        }
+        if signedOut || service.lastError != nil {
             Divider()
         }
 

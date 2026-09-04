@@ -17,19 +17,19 @@ enum RunError: Error, Equatable, Sendable {
 final class ReportRunner {
     private let livePresence: LivePresence
     private let registration: Registration
-    private let api: ChimelingAPI
+    private let client: any APIProtocol
     private var chain: Task<Result<Void, RunError>, Never>?
     private var isSignedIn: () -> Bool
 
     init(
         livePresence: LivePresence,
         registration: Registration,
-        api: ChimelingAPI,
+        client: any APIProtocol,
         isSignedIn: @escaping () -> Bool
     ) {
         self.livePresence = livePresence
         self.registration = registration
-        self.api = api
+        self.client = client
         self.isSignedIn = isSignedIn
     }
 
@@ -114,28 +114,38 @@ final class ReportRunner {
         }
 
         let report = PresenceFilter.filter(presence, appID: outcome.appID)
-        let delete = report.status == .offline
         let deviceID = try registration.cachedDeviceID()
 
-        if delete {
+        if report.status == .offline {
             guard let deviceID, !deviceID.isEmpty else { return }
-            let result = try await api.clearPresence(deviceID: deviceID)
-            try await interpret(result, identifier: presence.activity?.identifier, deleting: true)
+            let output = try await client.clearDevicePresence(.init(path: .init(deviceId: deviceID)))
+            try await interpretClear(output)
             return
         }
 
         guard let deviceID, !deviceID.isEmpty else {
             throw RunError.failed("device id is missing")
         }
-        guard report.status != .offline else {
-            throw RunError.failed("offline is not a reportable status")
+        let status: Operations.ReportDevicePresence.Input.Body.JsonPayload.StatusPayload =
+            switch report.status {
+            case .online: .online
+            case .idle: .idle
+            case .offline:
+                throw RunError.failed("offline is not a reportable status")
+            }
+        let activity = report.activity.map {
+            Operations.ReportDevicePresence.Input.Body.JsonPayload.ActivityPayload(
+                appId: $0.appID,
+                startedAt: $0.startedAt
+            )
         }
-        let result = try await api.reportPresence(
-            deviceID: deviceID,
-            status: report.status,
-            activity: report.activity
+        let output = try await client.reportDevicePresence(
+            .init(
+                path: .init(deviceId: deviceID),
+                body: .json(.init(status: status, activity: activity))
+            )
         )
-        try await interpret(result, identifier: presence.activity?.identifier, deleting: false)
+        try await interpretReport(output, identifier: presence.activity?.identifier)
     }
 
     private func clearInner() async -> Result<Void, RunError> {
@@ -154,38 +164,44 @@ final class ReportRunner {
     private func clearThrowing() async throws {
         let deviceID = try registration.cachedDeviceID()
         guard let deviceID, !deviceID.isEmpty else { return }
-        let result = try await api.clearPresence(deviceID: deviceID)
-        try await interpret(result, identifier: nil, deleting: true)
+        let output = try await client.clearDevicePresence(.init(path: .init(deviceId: deviceID)))
+        try await interpretClear(output)
     }
 
-    private func interpret(
-        _ outcome: APIOutcome<Void>,
-        identifier: String?,
-        deleting: Bool
+    private func interpretReport(
+        _ output: Operations.ReportDevicePresence.Output,
+        identifier: String?
     ) async throws {
-        switch outcome {
-        case .success:
+        switch output {
+        case .noContent:
             return
-        case .unauthorized:
+        case .unauthorized, .forbidden:
             throw RunError.auth
         case .notFound:
-            if deleting {
-                return
-            }
             try? await registration.invalidateDevice()
             throw RunError.failed("device 404")
-        case .unprocessable:
-            if !deleting, let identifier {
+        case .unprocessableContent:
+            if let identifier {
                 try? registration.invalidateApp(identifier: identifier)
             }
             throw RunError.failed("presence 422")
-        case .conflict:
-            throw RunError.failed("presence 409")
-        case .failure(let status):
-            if deleting {
-                throw RunError.failed("clear presence failed: \(status)")
-            }
+        case .badRequest:
+            throw RunError.failed("report presence failed: 400")
+        case .undocumented(let status, _):
             throw RunError.failed("report presence failed: \(status)")
+        }
+    }
+
+    private func interpretClear(_ output: Operations.ClearDevicePresence.Output) async throws {
+        switch output {
+        case .noContent, .notFound:
+            return
+        case .unauthorized, .forbidden:
+            throw RunError.auth
+        case .badRequest:
+            throw RunError.failed("clear presence failed: 400")
+        case .undocumented(let status, _):
+            throw RunError.failed("clear presence failed: \(status)")
         }
     }
 

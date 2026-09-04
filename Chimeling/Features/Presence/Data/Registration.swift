@@ -1,4 +1,5 @@
 import Foundation
+import OpenAPIRuntime
 
 struct RegistrationOutcome: Sendable {
     var alreadySatisfied: Bool
@@ -38,14 +39,14 @@ enum RegistrationError: Error, LocalizedError {
 }
 
 final class Registration {
-    private let api: ChimelingAPI
+    private let client: any APIProtocol
     private let cache: RegistrationCache
     private let icons: AppIconProvider
     private var repairedDeviceID: String?
     private var nameSynced = false
 
-    init(api: ChimelingAPI, cache: RegistrationCache, icons: AppIconProvider) {
-        self.api = api
+    init(client: any APIProtocol, cache: RegistrationCache, icons: AppIconProvider) {
+        self.client = client
         self.cache = cache
         self.icons = icons
     }
@@ -61,17 +62,22 @@ final class Registration {
         }
 
         let name = DeviceName.current
-        let outcome = try await api.registerDevice(name: name)
-        switch outcome {
-        case .success(let device):
+        let output = try await client.registerDevice(
+            .init(body: .json(.init(name: name, platform: .darwin)))
+        )
+        switch output {
+        case .created(let created):
+            let device = try created.body.json
             try keychain { try DeviceIdentity.save(device.id) }
             try cache.load(deviceID: device.id)
             try cache.setDeviceName(name)
             return device.id
         case .unauthorized:
             throw RegistrationError.unauthorized
-        case .notFound, .conflict, .unprocessable, .failure:
-            throw RegistrationError.requestFailed(operation: "registerDevice", status: outcome.status ?? 0)
+        case .badRequest:
+            throw RegistrationError.requestFailed(operation: "registerDevice", status: 400)
+        case .undocumented(let status, _):
+            throw RegistrationError.requestFailed(operation: "registerDevice", status: status)
         }
     }
 
@@ -83,18 +89,22 @@ final class Registration {
             nameSynced = true
             return
         }
-        let outcome = try await api.updateDevice(id: deviceID, name: name)
-        switch outcome {
-        case .success:
+        let output = try await client.updateDevice(
+            .init(path: .init(deviceId: deviceID), body: .json(.init(name: name)))
+        )
+        switch output {
+        case .ok:
             try cache.setDeviceName(name)
             nameSynced = true
         case .notFound:
             try await invalidateDevice()
             nameSynced = true
-        case .unauthorized:
+        case .unauthorized, .forbidden:
             throw RegistrationError.unauthorized
-        case .conflict, .unprocessable, .failure:
-            throw RegistrationError.requestFailed(operation: "updateDevice", status: outcome.status ?? 0)
+        case .badRequest:
+            throw RegistrationError.requestFailed(operation: "updateDevice", status: 400)
+        case .undocumented(let status, _):
+            throw RegistrationError.requestFailed(operation: "updateDevice", status: status)
         }
     }
 
@@ -167,9 +177,10 @@ final class Registration {
     }
 
     private func hydrate(deviceID: String) async throws {
-        let outcome = try await api.listApps(deviceID: deviceID)
-        switch outcome {
-        case .success(let apps):
+        let output = try await client.listApps(.init(path: .init(deviceId: deviceID)))
+        switch output {
+        case .ok(let ok):
+            let apps = try ok.body.json
             let cached = apps.map {
                 CachedApp(
                     identifier: $0.identifier,
@@ -182,10 +193,10 @@ final class Registration {
             try cache.replace(apps: cached, iconHashes: icons)
         case .notFound:
             try await invalidateDevice()
-        case .unauthorized:
+        case .unauthorized, .forbidden:
             throw RegistrationError.unauthorized
-        case .conflict, .unprocessable, .failure:
-            throw RegistrationError.requestFailed(operation: "listApps", status: outcome.status ?? 0)
+        case .undocumented(let status, _):
+            throw RegistrationError.requestFailed(operation: "listApps", status: status)
         }
     }
 
@@ -194,33 +205,31 @@ final class Registration {
             return false
         }
 
-        let head = try await api.checkIconExistence(hash: hash)
+        let head = try await client.checkIconExistence(.init(path: .init(hash: hash)))
         switch head {
-        case .success:
+        case .ok:
             try cache.addIcon(hash)
             return true
         case .notFound:
             break
-        case .unauthorized:
-            throw RegistrationError.unauthorized
-        case .conflict, .unprocessable, .failure:
-            throw RegistrationError.requestFailed(operation: "checkIconExistence", status: head.status ?? 0)
+        case .undocumented(let status, _):
+            throw RegistrationError.requestFailed(operation: "checkIconExistence", status: status)
         }
 
         try cache.dropIcon(hash)
 
-        let posted = try await api.registerIcon(png: png)
+        let posted = try await client.registerIcon(.init(body: .png(HTTPBody(png))))
         switch posted {
-        case .success, .conflict:
+        case .created, .conflict:
             try cache.addIcon(hash)
             return true
-        case .unprocessable:
+        case .contentTooLarge, .unsupportedMediaType:
             try cache.dropIcon(hash)
             throw RegistrationError.iconUnprocessable
         case .unauthorized:
             throw RegistrationError.unauthorized
-        case .notFound, .failure:
-            throw RegistrationError.requestFailed(operation: "registerIcon", status: posted.status ?? 0)
+        case .undocumented(let status, _):
+            throw RegistrationError.requestFailed(operation: "registerIcon", status: status)
         }
     }
 
@@ -229,14 +238,15 @@ final class Registration {
         activity: FocusedActivity,
         iconHash: String?
     ) async throws -> CachedApp {
-        let outcome = try await api.registerApp(
-            deviceID: deviceID,
-            identifier: activity.identifier,
-            name: activity.name,
-            iconHash: iconHash
+        let output = try await client.registerApp(
+            .init(
+                path: .init(deviceId: deviceID),
+                body: .json(.init(name: activity.name, identifier: activity.identifier, iconHash: iconHash))
+            )
         )
-        switch outcome {
-        case .success(let app):
+        switch output {
+        case .created(let created):
+            let app = try created.body.json
             let row = CachedApp(
                 identifier: activity.identifier,
                 appID: app.id,
@@ -248,15 +258,17 @@ final class Registration {
         case .notFound:
             try await invalidateDevice()
             throw RegistrationError.deviceNotFound
-        case .unprocessable:
+        case .unprocessableContent:
             if let iconHash {
                 try cache.dropIcon(iconHash)
             }
             throw RegistrationError.iconMissing
-        case .unauthorized:
+        case .unauthorized, .forbidden:
             throw RegistrationError.unauthorized
-        case .conflict, .failure:
-            throw RegistrationError.requestFailed(operation: "registerApp", status: outcome.status ?? 0)
+        case .badRequest:
+            throw RegistrationError.requestFailed(operation: "registerApp", status: 400)
+        case .undocumented(let status, _):
+            throw RegistrationError.requestFailed(operation: "registerApp", status: status)
         }
     }
 
@@ -266,14 +278,14 @@ final class Registration {
         activity: FocusedActivity,
         iconHash: String?
     ) async throws -> CachedApp {
-        let outcome = try await api.updateApp(
-            deviceID: deviceID,
-            appID: existing.appID,
-            name: activity.name,
-            iconHash: iconHash
+        let output = try await client.updateApp(
+            .init(
+                path: .init(deviceId: deviceID, appId: existing.appID),
+                body: .json(.init(name: activity.name, iconHash: iconHash))
+            )
         )
-        switch outcome {
-        case .success:
+        switch output {
+        case .ok:
             let row = CachedApp(
                 identifier: activity.identifier,
                 appID: existing.appID,
@@ -285,15 +297,17 @@ final class Registration {
         case .notFound:
             try cache.dropApp(identifier: activity.identifier)
             return try await registerApp(deviceID: deviceID, activity: activity, iconHash: iconHash)
-        case .unprocessable:
+        case .unprocessableContent:
             if let iconHash {
                 try cache.dropIcon(iconHash)
             }
             throw RegistrationError.iconMissing
-        case .unauthorized:
+        case .unauthorized, .forbidden:
             throw RegistrationError.unauthorized
-        case .conflict, .failure:
-            throw RegistrationError.requestFailed(operation: "updateApp", status: outcome.status ?? 0)
+        case .badRequest:
+            throw RegistrationError.requestFailed(operation: "updateApp", status: 400)
+        case .undocumented(let status, _):
+            throw RegistrationError.requestFailed(operation: "updateApp", status: status)
         }
     }
 
@@ -302,25 +316,6 @@ final class Registration {
             return try operation()
         } catch let failure as DeviceIdentity.Failure {
             throw RegistrationError.keychain(failure.status)
-        }
-    }
-}
-
-extension APIOutcome {
-    fileprivate var status: Int? {
-        switch self {
-        case .failure(let status):
-            status
-        case .unauthorized:
-            401
-        case .notFound:
-            404
-        case .conflict:
-            409
-        case .unprocessable:
-            422
-        case .success:
-            nil
         }
     }
 }
