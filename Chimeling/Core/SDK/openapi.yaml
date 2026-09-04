@@ -1,0 +1,1822 @@
+openapi: 3.1.0
+info:
+  version: v1
+  title: Chimeling API
+  description: >-
+    Chimeling publishes user presence for personal sites. A registered device
+    reports what its user is doing. Anyone can read the resolved presence and
+    embed it.
+
+
+    > [!warning]
+
+    > The API is currently unstable and may undergo breaking changes without
+    notice.
+tags:
+  - name: Devices
+    description: The registered clients that report presence.
+  - name: Apps
+    description: The apps registered on a device.
+  - name: Icons
+    description: Content-addressed app icons. The SHA-256 hash of the image bytes
+      serves as the unique identifier. Uploads must be a bitmap (`image/png`,
+      `image/jpeg`, `image/webp`, `image/gif`, `image/tiff`, `image/avif`).
+      Maximum size is 2 MiB and 4096x4096 pixels. A square 512x512 PNG or WebP
+      is recommended.
+  - name: Presence
+    description: The presence of a user's devices.
+components:
+  securitySchemes:
+    Bearer:
+      type: http
+      scheme: bearer
+      description: Clerk session token. Obtain it through the official Clerk SDK and
+        send it as a Bearer credential.
+  schemas: {}
+  parameters: {}
+paths:
+  /api/v1/devices:
+    post:
+      operationId: registerDevice
+      tags:
+        - Devices
+      summary: Register a device
+      description: Register a new device for the authenticated user. Each device needs
+        exactly one registration. Persist the returned ID. If a request with a
+        stored ID returns 404, the device was deleted on the server, so register
+        again and replace the stored ID.
+      security:
+        - Bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: MacBook Air
+                platform:
+                  type: string
+                  enum:
+                    - darwin
+                  example: darwin
+              required:
+                - name
+                - platform
+      responses:
+        "201":
+          description: The registered device
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+                  name:
+                    type: string
+                    example: MacBook Air
+                  platform:
+                    type: string
+                    enum:
+                      - darwin
+                    example: darwin
+                  createdAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: The date-time notation as defined by RFC 3339, section 5.6, for
+                      example, 2017-07-21T17:32:28Z
+                    example: 2026-06-26T20:48:06+08:00
+                  updatedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: The date-time notation as defined by RFC 3339, section 5.6, for
+                      example, 2017-07-21T17:32:28Z
+                    example: 2026-06-26T20:48:06+08:00
+                  lastSeenAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: Maintained by the server. Set at registration and refreshed on
+                      every authenticated request that targets the device. Never
+                      accepted from clients.
+                    example: 2026-06-26T20:48:06+08:00
+                  userId:
+                    type: string
+                    pattern: ^user_\w{27}$
+                    example: user_3G4vtDxd4i3FkoHz5dqnCz9Gsv0
+                required:
+                  - id
+                  - name
+                  - platform
+                  - createdAt
+                  - updatedAt
+                  - lastSeenAt
+                  - userId
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - false
+                  error:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        example: ZodError
+                      message:
+                        type: string
+                    required:
+                      - name
+                      - message
+                required:
+                  - success
+                  - error
+        "401":
+          description: Unauthorized
+          content:
+            text/plain:
+              example: "Unauthorized: missing session token"
+              schema:
+                type: string
+    get:
+      operationId: listDevices
+      tags:
+        - Devices
+      summary: List devices
+      description: List devices of the authenticated user, most recently seen first.
+      security:
+        - Bearer: []
+      responses:
+        "200":
+          description: The devices of the authenticated user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                      example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+                    name:
+                      type: string
+                      example: MacBook Air
+                    platform:
+                      type: string
+                      enum:
+                        - darwin
+                      example: darwin
+                    createdAt:
+                      type:
+                        - string
+                        - "null"
+                      format: date-time
+                      description: The date-time notation as defined by RFC 3339, section 5.6, for
+                        example, 2017-07-21T17:32:28Z
+                      example: 2026-06-26T20:48:06+08:00
+                    updatedAt:
+                      type:
+                        - string
+                        - "null"
+                      format: date-time
+                      description: The date-time notation as defined by RFC 3339, section 5.6, for
+                        example, 2017-07-21T17:32:28Z
+                      example: 2026-06-26T20:48:06+08:00
+                    lastSeenAt:
+                      type:
+                        - string
+                        - "null"
+                      format: date-time
+                      description: Maintained by the server. Set at registration and refreshed on
+                        every authenticated request that targets the device.
+                        Never accepted from clients.
+                      example: 2026-06-26T20:48:06+08:00
+                    userId:
+                      type: string
+                      pattern: ^user_\w{27}$
+                      example: user_3G4vtDxd4i3FkoHz5dqnCz9Gsv0
+                  required:
+                    - id
+                    - name
+                    - platform
+                    - createdAt
+                    - updatedAt
+                    - lastSeenAt
+                    - userId
+        "401":
+          description: Unauthorized
+  /api/v1/devices/{deviceId}:
+    get:
+      operationId: getDevice
+      tags:
+        - Devices
+      summary: Get a device
+      description: Get a device owned by the authenticated user.
+      security:
+        - Bearer: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+          required: true
+          name: deviceId
+          in: path
+      responses:
+        "200":
+          description: The device
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+                  name:
+                    type: string
+                    example: MacBook Air
+                  platform:
+                    type: string
+                    enum:
+                      - darwin
+                    example: darwin
+                  createdAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: The date-time notation as defined by RFC 3339, section 5.6, for
+                      example, 2017-07-21T17:32:28Z
+                    example: 2026-06-26T20:48:06+08:00
+                  updatedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: The date-time notation as defined by RFC 3339, section 5.6, for
+                      example, 2017-07-21T17:32:28Z
+                    example: 2026-06-26T20:48:06+08:00
+                  lastSeenAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: Maintained by the server. Set at registration and refreshed on
+                      every authenticated request that targets the device. Never
+                      accepted from clients.
+                    example: 2026-06-26T20:48:06+08:00
+                  userId:
+                    type: string
+                    pattern: ^user_\w{27}$
+                    example: user_3G4vtDxd4i3FkoHz5dqnCz9Gsv0
+                required:
+                  - id
+                  - name
+                  - platform
+                  - createdAt
+                  - updatedAt
+                  - lastSeenAt
+                  - userId
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - false
+                  error:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        example: ZodError
+                      message:
+                        type: string
+                    required:
+                      - name
+                      - message
+                required:
+                  - success
+                  - error
+        "401":
+          description: Unauthorized
+          content:
+            text/plain:
+              example: "Unauthorized: missing session token"
+              schema:
+                type: string
+        "403":
+          description: Forbidden
+          content:
+            text/plain:
+              example: Forbidden
+              schema:
+                type: string
+        "404":
+          description: Device not found
+          content:
+            text/plain:
+              example: Device not found
+              schema:
+                type: string
+    patch:
+      operationId: updateDevice
+      tags:
+        - Devices
+      summary: Update a device
+      description: Update a device owned by the authenticated user.
+      security:
+        - Bearer: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+          required: true
+          name: deviceId
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: MacBook Air
+      responses:
+        "200":
+          description: The updated device
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+                  name:
+                    type: string
+                    example: MacBook Air
+                  platform:
+                    type: string
+                    enum:
+                      - darwin
+                    example: darwin
+                  createdAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: The date-time notation as defined by RFC 3339, section 5.6, for
+                      example, 2017-07-21T17:32:28Z
+                    example: 2026-06-26T20:48:06+08:00
+                  updatedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: The date-time notation as defined by RFC 3339, section 5.6, for
+                      example, 2017-07-21T17:32:28Z
+                    example: 2026-06-26T20:48:06+08:00
+                  lastSeenAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: Maintained by the server. Set at registration and refreshed on
+                      every authenticated request that targets the device. Never
+                      accepted from clients.
+                    example: 2026-06-26T20:48:06+08:00
+                  userId:
+                    type: string
+                    pattern: ^user_\w{27}$
+                    example: user_3G4vtDxd4i3FkoHz5dqnCz9Gsv0
+                required:
+                  - id
+                  - name
+                  - platform
+                  - createdAt
+                  - updatedAt
+                  - lastSeenAt
+                  - userId
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - false
+                  error:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        example: ZodError
+                      message:
+                        type: string
+                    required:
+                      - name
+                      - message
+                required:
+                  - success
+                  - error
+        "401":
+          description: Unauthorized
+          content:
+            text/plain:
+              example: "Unauthorized: missing session token"
+              schema:
+                type: string
+        "403":
+          description: Forbidden
+          content:
+            text/plain:
+              example: Forbidden
+              schema:
+                type: string
+        "404":
+          description: Device not found
+          content:
+            text/plain:
+              example: Device not found
+              schema:
+                type: string
+    delete:
+      operationId: deleteDevice
+      tags:
+        - Devices
+      summary: Delete a device
+      description: Delete a device owned by the authenticated user.
+      security:
+        - Bearer: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+          required: true
+          name: deviceId
+          in: path
+      responses:
+        "204":
+          description: Device deleted
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - false
+                  error:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        example: ZodError
+                      message:
+                        type: string
+                    required:
+                      - name
+                      - message
+                required:
+                  - success
+                  - error
+        "401":
+          description: Unauthorized
+          content:
+            text/plain:
+              example: "Unauthorized: missing session token"
+              schema:
+                type: string
+        "403":
+          description: Forbidden
+          content:
+            text/plain:
+              example: Forbidden
+              schema:
+                type: string
+        "404":
+          description: Device not found
+          content:
+            text/plain:
+              example: Device not found
+              schema:
+                type: string
+  /api/v1/devices/{deviceId}/apps:
+    get:
+      operationId: listApps
+      tags:
+        - Apps
+      summary: List apps
+      description: List apps registered on the device, most recently opened first.
+      security:
+        - Bearer: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+          required: true
+          name: deviceId
+          in: path
+      responses:
+        "200":
+          description: The apps registered on the device
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                      example: 8dc8f923-205d-4c77-a61c-739be43882db
+                    name:
+                      type: string
+                      example: Xcode
+                    identifier:
+                      type: string
+                      example: com.apple.dt.Xcode
+                    createdAt:
+                      type:
+                        - string
+                        - "null"
+                      format: date-time
+                      description: The date-time notation as defined by RFC 3339, section 5.6, for
+                        example, 2017-07-21T17:32:28Z
+                      example: 2026-06-26T20:48:06+08:00
+                    updatedAt:
+                      type:
+                        - string
+                        - "null"
+                      format: date-time
+                      description: The date-time notation as defined by RFC 3339, section 5.6, for
+                        example, 2017-07-21T17:32:28Z
+                      example: 2026-06-26T20:48:06+08:00
+                    lastOpenedAt:
+                      type:
+                        - string
+                        - "null"
+                      format: date-time
+                      description: Maintained by the server. Set at registration and refreshed
+                        whenever the app is updated or referenced in a presence
+                        report. Never accepted from clients.
+                      example: 2026-06-26T20:48:06+08:00
+                    deviceId:
+                      type: string
+                      format: uuid
+                      example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+                    iconHash:
+                      type:
+                        - string
+                        - "null"
+                      pattern: ^[0-9a-f]{64}$
+                      example: dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+                  required:
+                    - id
+                    - name
+                    - identifier
+                    - createdAt
+                    - updatedAt
+                    - lastOpenedAt
+                    - deviceId
+                    - iconHash
+        "401":
+          description: Unauthorized
+          content:
+            text/plain:
+              example: "Unauthorized: missing session token"
+              schema:
+                type: string
+        "403":
+          description: Forbidden
+          content:
+            text/plain:
+              example: Forbidden
+              schema:
+                type: string
+        "404":
+          description: Device not found
+          content:
+            text/plain:
+              example: Device not found
+              schema:
+                type: string
+    post:
+      operationId: registerApp
+      tags:
+        - Apps
+      summary: Register an app
+      description: Register an app on the device. The referenced `iconHash` must
+        already exist, so register the icon before registering the app.
+      security:
+        - Bearer: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+          required: true
+          name: deviceId
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Xcode
+                identifier:
+                  type: string
+                  example: com.apple.dt.Xcode
+                iconHash:
+                  type:
+                    - string
+                    - "null"
+                  pattern: ^[0-9a-f]{64}$
+                  example: dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+              required:
+                - name
+                - identifier
+                - iconHash
+      responses:
+        "201":
+          description: The registered app
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    example: 8dc8f923-205d-4c77-a61c-739be43882db
+                  name:
+                    type: string
+                    example: Xcode
+                  identifier:
+                    type: string
+                    example: com.apple.dt.Xcode
+                  createdAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: The date-time notation as defined by RFC 3339, section 5.6, for
+                      example, 2017-07-21T17:32:28Z
+                    example: 2026-06-26T20:48:06+08:00
+                  updatedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: The date-time notation as defined by RFC 3339, section 5.6, for
+                      example, 2017-07-21T17:32:28Z
+                    example: 2026-06-26T20:48:06+08:00
+                  lastOpenedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: Maintained by the server. Set at registration and refreshed
+                      whenever the app is updated or referenced in a presence
+                      report. Never accepted from clients.
+                    example: 2026-06-26T20:48:06+08:00
+                  deviceId:
+                    type: string
+                    format: uuid
+                    example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+                  iconHash:
+                    type:
+                      - string
+                      - "null"
+                    pattern: ^[0-9a-f]{64}$
+                    example: dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+                required:
+                  - id
+                  - name
+                  - identifier
+                  - createdAt
+                  - updatedAt
+                  - lastOpenedAt
+                  - deviceId
+                  - iconHash
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - false
+                  error:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        example: ZodError
+                      message:
+                        type: string
+                    required:
+                      - name
+                      - message
+                required:
+                  - success
+                  - error
+        "401":
+          description: Unauthorized
+          content:
+            text/plain:
+              example: "Unauthorized: missing session token"
+              schema:
+                type: string
+        "403":
+          description: Forbidden
+          content:
+            text/plain:
+              example: Forbidden
+              schema:
+                type: string
+        "404":
+          description: Device or app not found
+          content:
+            text/plain:
+              example: App not found
+              schema:
+                type: string
+        "422":
+          description: The referenced icon does not exist
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Invalid reference
+                required:
+                  - error
+  /api/v1/devices/{deviceId}/apps/{appId}:
+    get:
+      operationId: getApp
+      tags:
+        - Apps
+      summary: Get an app
+      description: Get an app registered on the device.
+      security:
+        - Bearer: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+          required: true
+          name: deviceId
+          in: path
+        - schema:
+            type: string
+            format: uuid
+            example: 8dc8f923-205d-4c77-a61c-739be43882db
+          required: true
+          name: appId
+          in: path
+      responses:
+        "200":
+          description: The app
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    example: 8dc8f923-205d-4c77-a61c-739be43882db
+                  name:
+                    type: string
+                    example: Xcode
+                  identifier:
+                    type: string
+                    example: com.apple.dt.Xcode
+                  createdAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: The date-time notation as defined by RFC 3339, section 5.6, for
+                      example, 2017-07-21T17:32:28Z
+                    example: 2026-06-26T20:48:06+08:00
+                  updatedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: The date-time notation as defined by RFC 3339, section 5.6, for
+                      example, 2017-07-21T17:32:28Z
+                    example: 2026-06-26T20:48:06+08:00
+                  lastOpenedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: Maintained by the server. Set at registration and refreshed
+                      whenever the app is updated or referenced in a presence
+                      report. Never accepted from clients.
+                    example: 2026-06-26T20:48:06+08:00
+                  deviceId:
+                    type: string
+                    format: uuid
+                    example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+                  iconHash:
+                    type:
+                      - string
+                      - "null"
+                    pattern: ^[0-9a-f]{64}$
+                    example: dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+                required:
+                  - id
+                  - name
+                  - identifier
+                  - createdAt
+                  - updatedAt
+                  - lastOpenedAt
+                  - deviceId
+                  - iconHash
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - false
+                  error:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        example: ZodError
+                      message:
+                        type: string
+                    required:
+                      - name
+                      - message
+                required:
+                  - success
+                  - error
+        "401":
+          description: Unauthorized
+          content:
+            text/plain:
+              example: "Unauthorized: missing session token"
+              schema:
+                type: string
+        "403":
+          description: Forbidden
+          content:
+            text/plain:
+              example: Forbidden
+              schema:
+                type: string
+        "404":
+          description: Device or app not found
+          content:
+            text/plain:
+              example: App not found
+              schema:
+                type: string
+    patch:
+      operationId: updateApp
+      tags:
+        - Apps
+      summary: Update an app
+      description: Update an app registered on the device.
+      security:
+        - Bearer: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+          required: true
+          name: deviceId
+          in: path
+        - schema:
+            type: string
+            format: uuid
+            example: 8dc8f923-205d-4c77-a61c-739be43882db
+          required: true
+          name: appId
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Xcode
+                identifier:
+                  type: string
+                  example: com.apple.dt.Xcode
+                iconHash:
+                  type:
+                    - string
+                    - "null"
+                  pattern: ^[0-9a-f]{64}$
+                  example: dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+      responses:
+        "200":
+          description: The updated app
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    example: 8dc8f923-205d-4c77-a61c-739be43882db
+                  name:
+                    type: string
+                    example: Xcode
+                  identifier:
+                    type: string
+                    example: com.apple.dt.Xcode
+                  createdAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: The date-time notation as defined by RFC 3339, section 5.6, for
+                      example, 2017-07-21T17:32:28Z
+                    example: 2026-06-26T20:48:06+08:00
+                  updatedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: The date-time notation as defined by RFC 3339, section 5.6, for
+                      example, 2017-07-21T17:32:28Z
+                    example: 2026-06-26T20:48:06+08:00
+                  lastOpenedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: Maintained by the server. Set at registration and refreshed
+                      whenever the app is updated or referenced in a presence
+                      report. Never accepted from clients.
+                    example: 2026-06-26T20:48:06+08:00
+                  deviceId:
+                    type: string
+                    format: uuid
+                    example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+                  iconHash:
+                    type:
+                      - string
+                      - "null"
+                    pattern: ^[0-9a-f]{64}$
+                    example: dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+                required:
+                  - id
+                  - name
+                  - identifier
+                  - createdAt
+                  - updatedAt
+                  - lastOpenedAt
+                  - deviceId
+                  - iconHash
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - false
+                  error:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        example: ZodError
+                      message:
+                        type: string
+                    required:
+                      - name
+                      - message
+                required:
+                  - success
+                  - error
+        "401":
+          description: Unauthorized
+          content:
+            text/plain:
+              example: "Unauthorized: missing session token"
+              schema:
+                type: string
+        "403":
+          description: Forbidden
+          content:
+            text/plain:
+              example: Forbidden
+              schema:
+                type: string
+        "404":
+          description: Device or app not found
+          content:
+            text/plain:
+              example: App not found
+              schema:
+                type: string
+        "422":
+          description: The referenced icon does not exist
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Invalid reference
+                required:
+                  - error
+    delete:
+      operationId: deleteApp
+      tags:
+        - Apps
+      summary: Delete an app
+      description: Delete an app registered on the device.
+      security:
+        - Bearer: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+          required: true
+          name: deviceId
+          in: path
+        - schema:
+            type: string
+            format: uuid
+            example: 8dc8f923-205d-4c77-a61c-739be43882db
+          required: true
+          name: appId
+          in: path
+      responses:
+        "204":
+          description: App deleted
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - false
+                  error:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        example: ZodError
+                      message:
+                        type: string
+                    required:
+                      - name
+                      - message
+                required:
+                  - success
+                  - error
+        "401":
+          description: Unauthorized
+          content:
+            text/plain:
+              example: "Unauthorized: missing session token"
+              schema:
+                type: string
+        "403":
+          description: Forbidden
+          content:
+            text/plain:
+              example: Forbidden
+              schema:
+                type: string
+        "404":
+          description: Device or app not found
+          content:
+            text/plain:
+              example: App not found
+              schema:
+                type: string
+  /api/v1/devices/{deviceId}/presence:
+    put:
+      operationId: reportDevicePresence
+      tags:
+        - Presence
+      summary: Report device presence
+      description: An idempotent full overwrite of the stored presence. Heartbeats and
+        change events share this shape. The stored presence expires 10 minutes
+        after the last report.
+      security:
+        - Bearer: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+          required: true
+          name: deviceId
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            examples:
+              online:
+                value:
+                  status: online
+                  activity: &a1
+                    appId: 8dc8f923-205d-4c77-a61c-739be43882db
+                    startedAt: 2026-06-26T20:48:06+08:00
+              idle:
+                value:
+                  status: idle
+                  activity: *a1
+              activity undisclosed:
+                value:
+                  status: online
+                  activity: null
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - online
+                    - idle
+                  description: The device-reported state. `offline` is not a reportable value.
+                    Going offline is `DELETE` on the presence path.
+                  x-enum-descriptions:
+                    online: The device is actively in use.
+                    idle: The device is on but the user is away. The last activity stays attached.
+                  example: online
+                activity:
+                  type:
+                    - object
+                    - "null"
+                  properties:
+                    appId:
+                      type: string
+                      format: uuid
+                      example: 8dc8f923-205d-4c77-a61c-739be43882db
+                      description: An app already registered on this device through `POST
+                        /v1/devices/{deviceId}/apps`. Presence never creates
+                        apps.
+                    startedAt:
+                      type: string
+                      format: date-time
+                      example: 2026-06-26T20:48:06+08:00
+                      description: When the activity started, as observed by the device. Stored
+                        verbatim.
+                  required:
+                    - appId
+                    - startedAt
+                  description: The current activity, or `null` to report status without disclosing
+                    it.
+              required:
+                - status
+                - activity
+      responses:
+        "204":
+          description: Presence reported
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - false
+                  error:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        example: ZodError
+                      message:
+                        type: string
+                    required:
+                      - name
+                      - message
+                required:
+                  - success
+                  - error
+        "401":
+          description: Unauthorized
+          content:
+            text/plain:
+              example: "Unauthorized: missing session token"
+              schema:
+                type: string
+        "403":
+          description: Forbidden
+          content:
+            text/plain:
+              example: Forbidden
+              schema:
+                type: string
+        "404":
+          description: Device not found
+          content:
+            text/plain:
+              example: Device not found
+              schema:
+                type: string
+        "422":
+          description: The referenced app does not exist or is not owned by the device
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Invalid reference
+                required:
+                  - error
+    delete:
+      operationId: clearDevicePresence
+      tags:
+        - Presence
+      summary: Clear device presence
+      description: Take the device offline. Succeeds even when the device is already
+        offline.
+      security:
+        - Bearer: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            example: da401463-eb58-4f43-bbd6-dc3a46379e9e
+          required: true
+          name: deviceId
+          in: path
+      responses:
+        "204":
+          description: Presence cleared
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - false
+                  error:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        example: ZodError
+                      message:
+                        type: string
+                    required:
+                      - name
+                      - message
+                required:
+                  - success
+                  - error
+        "401":
+          description: Unauthorized
+          content:
+            text/plain:
+              example: "Unauthorized: missing session token"
+              schema:
+                type: string
+        "403":
+          description: Forbidden
+          content:
+            text/plain:
+              example: Forbidden
+              schema:
+                type: string
+        "404":
+          description: Device not found
+          content:
+            text/plain:
+              example: Device not found
+              schema:
+                type: string
+  /api/v1/icons:
+    post:
+      operationId: registerIcon
+      tags:
+        - Icons
+      summary: Register an icon
+      description: The body is the raw image bytes. The server derives the SHA-256
+        hash. Check existence with `HEAD /v1/icons/{hash}` before uploading.
+        Allowed content types are `image/png`, `image/jpeg`, `image/webp`,
+        `image/gif`, `image/tiff`, `image/avif`. Maximum size is 2 MiB and
+        4096x4096 pixels. A square 512x512 PNG or WebP is recommended.
+      security:
+        - Bearer: []
+      requestBody:
+        required: true
+        content:
+          image/png:
+            schema:
+              type: string
+              format: binary
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/webp:
+            schema:
+              type: string
+              format: binary
+          image/gif:
+            schema:
+              type: string
+              format: binary
+          image/tiff:
+            schema:
+              type: string
+              format: binary
+          image/avif:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "201":
+          description: The registered icon
+          headers:
+            Location:
+              schema:
+                type: string
+                example: /api/v1/icons/dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+              required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hash:
+                    type: string
+                    pattern: ^[0-9a-f]{64}$
+                    example: dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+                  contentType:
+                    type: string
+                    enum:
+                      - image/png
+                      - image/jpeg
+                      - image/webp
+                      - image/gif
+                      - image/tiff
+                      - image/avif
+                    example: image/png
+                    description: The detected media type of the stored bitmap. Allowed values are
+                      `image/png`, `image/jpeg`, `image/webp`, `image/gif`,
+                      `image/tiff`, `image/avif`.
+                  createdAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: The date-time notation as defined by RFC 3339, section 5.6, for
+                      example, 2017-07-21T17:32:28Z
+                    example: 2026-06-26T20:48:06+08:00
+                  updatedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: The date-time notation as defined by RFC 3339, section 5.6, for
+                      example, 2017-07-21T17:32:28Z
+                    example: 2026-06-26T20:48:06+08:00
+                required:
+                  - hash
+                  - contentType
+                  - createdAt
+                  - updatedAt
+        "401":
+          description: Unauthorized
+          content:
+            text/plain:
+              example: "Unauthorized: missing session token"
+              schema:
+                type: string
+        "409":
+          description: An icon with the same hash already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Conflict
+                required:
+                  - error
+        "413":
+          description: Payload exceeds the 2 MiB size limit
+          content:
+            text/plain:
+              example: Payload too large
+              schema:
+                type: string
+        "415":
+          description: Unsupported or undetectable media type. Allowed types are
+            `image/png`, `image/jpeg`, `image/webp`, `image/gif`, `image/tiff`,
+            `image/avif`.
+          content:
+            text/plain:
+              example: Unsupported media type
+              schema:
+                type: string
+  /api/v1/icons/{hash}:
+    head:
+      operationId: checkIconExistence
+      tags:
+        - Icons
+      summary: Check icon existence
+      description: Check whether an icon exists.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+            example: dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+          required: true
+          name: hash
+          in: path
+      responses:
+        "200":
+          description: The icon exists
+        "404":
+          description: Icon not found
+    get:
+      operationId: getIcon
+      tags:
+        - Icons
+      summary: Get an icon
+      description: Get an icon by its hash.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+            example: dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+          required: true
+          name: hash
+          in: path
+      responses:
+        "200":
+          description: The icon
+          content:
+            application/json:
+              example:
+                hash: dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+                contentType: image/png
+                createdAt: 2026-06-26T20:48:06+08:00
+                updatedAt: 2026-06-26T20:48:06+08:00
+              schema:
+                type: object
+                properties:
+                  hash:
+                    type: string
+                    pattern: ^[0-9a-f]{64}$
+                    example: dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+                  contentType:
+                    type: string
+                    enum:
+                      - image/png
+                      - image/jpeg
+                      - image/webp
+                      - image/gif
+                      - image/tiff
+                      - image/avif
+                    example: image/png
+                    description: The detected media type of the stored bitmap. Allowed values are
+                      `image/png`, `image/jpeg`, `image/webp`, `image/gif`,
+                      `image/tiff`, `image/avif`.
+                  createdAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: The date-time notation as defined by RFC 3339, section 5.6, for
+                      example, 2017-07-21T17:32:28Z
+                    example: 2026-06-26T20:48:06+08:00
+                  updatedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: The date-time notation as defined by RFC 3339, section 5.6, for
+                      example, 2017-07-21T17:32:28Z
+                    example: 2026-06-26T20:48:06+08:00
+                required:
+                  - hash
+                  - contentType
+                  - createdAt
+                  - updatedAt
+        "404":
+          description: Icon not found
+          content:
+            text/plain:
+              example: Icon not found
+              schema:
+                type: string
+  /api/v1/icons/{hash}/image:
+    get:
+      operationId: getIconImage
+      tags:
+        - Icons
+      summary: Get an icon image
+      description: Get the image of an icon. The response is either a redirect to the
+        image or the image bytes served directly.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+            example: dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+          required: true
+          name: hash
+          in: path
+      responses:
+        "200":
+          description: The icon image bytes
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            image/gif:
+              schema:
+                type: string
+                format: binary
+            image/tiff:
+              schema:
+                type: string
+                format: binary
+            image/avif:
+              schema:
+                type: string
+                format: binary
+        "302":
+          description: Redirect to the icon image
+        "304":
+          description: Not modified
+        "404":
+          description: Icon not found
+          content:
+            text/plain:
+              example: Icon not found
+              schema:
+                type: string
+  /api/v1/presence/{userId}:
+    get:
+      operationId: getResolvedUserPresence
+      tags:
+        - Presence
+      summary: Get the resolved presence of a user
+      description: The resolved presence comes from the most recently reported
+        `online` device, otherwise the most recently reported `idle` device,
+        otherwise the user is `offline`. The response for an unknown user is
+        identical to that for an offline user, so this endpoint does not reveal
+        whether a user exists. Responses must not be cached.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^user_\w{27}$
+            example: user_3G4vtDxd4i3FkoHz5dqnCz9Gsv0
+          required: true
+          name: userId
+          in: path
+      responses:
+        "200":
+          description: The resolved presence
+          content:
+            application/json:
+              examples:
+                online:
+                  value:
+                    status: online
+                    activity: &a2
+                      gerund: writing code
+                      appName: Xcode
+                      iconHash: dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+                      startedAt: 2026-06-26T20:48:06+08:00
+                idle:
+                  value:
+                    status: idle
+                    activity: *a2
+                offline:
+                  value:
+                    status: offline
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        enum:
+                          - offline
+                    required:
+                      - status
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        enum:
+                          - online
+                      activity:
+                        type:
+                          - object
+                          - "null"
+                        properties:
+                          gerund:
+                            type: string
+                            example: writing code
+                            description: A complete server-produced phrase describing the activity,
+                              currently the fixed placeholder `using the app`.
+                          appName:
+                            type: string
+                            example: Xcode
+                            description: The display name of the app.
+                          iconHash:
+                            type:
+                              - string
+                              - "null"
+                            pattern: ^[0-9a-f]{64}$
+                            example: dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+                            description: References the app icon served at `GET /v1/icons/{hash}/image`.
+                          startedAt:
+                            type: string
+                            format: date-time
+                            example: 2026-06-26T20:48:06+08:00
+                            description: Device-reported activity start, for client-side duration math.
+                        required:
+                          - gerund
+                          - appName
+                          - iconHash
+                          - startedAt
+                        description: The resolved activity, or `null` when the device discloses nothing.
+                    required:
+                      - status
+                      - activity
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        enum:
+                          - idle
+                      activity:
+                        type:
+                          - object
+                          - "null"
+                        properties:
+                          gerund:
+                            type: string
+                            example: writing code
+                            description: A complete server-produced phrase describing the activity,
+                              currently the fixed placeholder `using the app`.
+                          appName:
+                            type: string
+                            example: Xcode
+                            description: The display name of the app.
+                          iconHash:
+                            type:
+                              - string
+                              - "null"
+                            pattern: ^[0-9a-f]{64}$
+                            example: dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+                            description: References the app icon served at `GET /v1/icons/{hash}/image`.
+                          startedAt:
+                            type: string
+                            format: date-time
+                            example: 2026-06-26T20:48:06+08:00
+                            description: Device-reported activity start, for client-side duration math.
+                        required:
+                          - gerund
+                          - appName
+                          - iconHash
+                          - startedAt
+                        description: The resolved activity, or `null` when the device discloses nothing.
+                    required:
+                      - status
+                      - activity
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - false
+                  error:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        example: ZodError
+                      message:
+                        type: string
+                    required:
+                      - name
+                      - message
+                required:
+                  - success
+                  - error
+        "503":
+          description: Service unavailable
+          headers:
+            Retry-After:
+              schema:
+                type: string
+                example: "5"
+              required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Presence temporarily unavailable
+                required:
+                  - error
+webhooks: {}
