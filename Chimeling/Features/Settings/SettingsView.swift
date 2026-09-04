@@ -14,8 +14,8 @@ struct SettingsView: View {
             Tab("Square", systemImage: "square", value: SettingsTab.square) {
                 SquareSettingsView()
             }
-            Tab("Pentagon", systemImage: "pentagon", value: SettingsTab.pentagon) {
-                PentagonSettingsView()
+            Tab("About", systemImage: "info.circle", value: SettingsTab.about) {
+                AboutSettingsView()
             }
         }
         .frame(width: 500, height: 500)

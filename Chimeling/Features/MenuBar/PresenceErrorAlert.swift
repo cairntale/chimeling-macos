@@ -6,8 +6,7 @@ enum PresenceErrorAlert {
         NSApp.activate()
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.icon = Bundle.main.image(forResource: "AppIcon")
-            ?? NSImage(named: "AppIcon")
+        alert.icon = ChimelingAppIcon.image
         alert.messageText = "Presence reporting failed"
         alert.addButton(withTitle: "OK")
         alert.addButton(withTitle: "Copy")
