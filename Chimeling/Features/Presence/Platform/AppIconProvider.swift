@@ -2,15 +2,10 @@ import AppKit
 import Foundation
 
 final class AppIconProvider {
-    private struct Entry {
-        var png: Data
-        var cachedAt: Date
-    }
-
-    private var cache: [String: Entry] = [:]
+    private var cache: [String: Data] = [:]
 
     func png(for identifier: String) -> Data? {
-        cache[identifier]?.png
+        cache[identifier]
     }
 
     func nsImage(for identifier: String) -> NSImage? {
@@ -18,21 +13,18 @@ final class AppIconProvider {
     }
 
     func capture(identifier: String, from app: NSRunningApplication) -> Data? {
-        if let entry = cache[identifier], !isExpired(entry.cachedAt) {
-            return entry.png
-        }
-        guard let png = png(from: app) else { return cache[identifier]?.png }
-        cache[identifier] = Entry(png: png, cachedAt: .now)
+        guard let png = png(from: app) else { return cache[identifier] }
+        cache[identifier] = png
         return png
     }
 
-    private func isExpired(_ cachedAt: Date) -> Bool {
-        Date.now.timeIntervalSince(cachedAt) >= PresenceTiming.iconTTL
-    }
-
     private func png(from app: NSRunningApplication) -> Data? {
-        let image = app.icon ?? app.bundleURL.map { NSWorkspace.shared.icon(forFile: $0.path) }
-        guard let image else { return nil }
+        guard let source = app.icon ?? app.bundleURL.map({ NSWorkspace.shared.icon(forFile: $0.path) }) else {
+            return nil
+        }
+        let image = source.copy() as? NSImage ?? source
+        let target = PresenceTiming.iconTarget
+        image.size = NSSize(width: target, height: target)
         return png(from: image)
     }
 

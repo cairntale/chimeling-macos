@@ -86,7 +86,9 @@ final class FocusedAppTracker {
         let name = app.localizedName?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .nilIfEmpty ?? identifier
-        _ = icons.capture(identifier: identifier, from: app)
+        if currentIdentifier != identifier {
+            _ = icons.capture(identifier: identifier, from: app)
+        }
         let startedAt =
             if currentIdentifier == identifier, let existing = livePresence.current.activity {
                 existing.startedAt
