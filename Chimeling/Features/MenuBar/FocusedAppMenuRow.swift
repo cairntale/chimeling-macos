@@ -17,6 +17,7 @@ struct FocusedAppMenuRow: View {
                                 Image(nsImage: icon)
                             }
                         }
+                        .labelStyle(.titleAndIcon)
                     } else {
                         Button(activity.name, action: noop)
                     }

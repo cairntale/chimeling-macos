@@ -16,6 +16,7 @@ struct MenuBarContent: View {
                     Image(nsImage: MenuStatusDot.blue)
                 }
             }
+            .labelStyle(.titleAndIcon)
         }
         if let error = service.lastError {
             Button {
@@ -27,6 +28,7 @@ struct MenuBarContent: View {
                     Image(nsImage: MenuStatusDot.red)
                 }
             }
+            .labelStyle(.titleAndIcon)
         }
         if signedOut || service.lastError != nil {
             Divider()
