@@ -1,10 +1,19 @@
 import AppKit
 
 enum MenuStatusDot {
-    static let blue = image(color: .systemBlue)
-    static let red = image(color: .systemRed)
+    static func image(for status: MenuBarStatus) -> NSImage {
+        switch status {
+        case .signedOut:
+            signedOut
+        case .error:
+            error
+        }
+    }
 
-    private static func image(color: NSColor) -> NSImage {
+    private static let signedOut = make(MenuBarStatus.signedOutColor)
+    private static let error = make(MenuBarStatus.errorColor)
+
+    private static func make(_ color: NSColor) -> NSImage {
         let configuration = NSImage.SymbolConfiguration(pointSize: 8, weight: .regular)
             .applying(.init(paletteColors: [color]))
         let image =

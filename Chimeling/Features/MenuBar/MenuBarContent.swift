@@ -7,30 +7,33 @@ struct MenuBarContent: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        let signedOut = clerk.session == nil
-        if signedOut {
-            Button(action: signIn) {
-                Label {
-                    Text("Sign in…")
-                } icon: {
-                    Image(nsImage: MenuStatusDot.blue)
+        if let status = MenuBarStatus(
+            isLoaded: clerk.isLoaded,
+            isSignedIn: clerk.session != nil,
+            lastError: service.lastError
+        ) {
+            switch status {
+            case .signedOut:
+                Button(action: signIn) {
+                    Label {
+                        Text("Sign in…")
+                    } icon: {
+                        Image(nsImage: MenuStatusDot.image(for: status))
+                    }
                 }
-            }
-            .labelStyle(.titleAndIcon)
-        }
-        if let error = service.lastError {
-            Button {
-                PresenceErrorAlert.present(message: error.message)
-            } label: {
-                Label {
-                    Text("An error occurred")
-                } icon: {
-                    Image(nsImage: MenuStatusDot.red)
+                .labelStyle(.titleAndIcon)
+            case .error(let error):
+                Button {
+                    PresenceErrorAlert.present(message: error.message)
+                } label: {
+                    Label {
+                        Text("An error occurred")
+                    } icon: {
+                        Image(nsImage: MenuStatusDot.image(for: status))
+                    }
                 }
+                .labelStyle(.titleAndIcon)
             }
-            .labelStyle(.titleAndIcon)
-        }
-        if signedOut || service.lastError != nil {
             Divider()
         }
 
