@@ -63,6 +63,8 @@ xcodebuild archive \
 	-authenticationKeyPath "$api_key" \
 	-authenticationKeyID "$APP_STORE_CONNECT_API_KEY_ID" \
 	-authenticationKeyIssuerID "$APP_STORE_CONNECT_API_ISSUER_ID" \
+	-skipPackagePluginValidation \
+	-skipMacroValidation \
 	DEVELOPMENT_TEAM=2VW2ZL88HK \
 	CODE_SIGN_STYLE=Automatic \
 	CODE_SIGN_IDENTITY="$identity" \
