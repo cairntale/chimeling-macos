@@ -65,10 +65,7 @@ xcodebuild archive \
 	-authenticationKeyIssuerID "$APP_STORE_CONNECT_API_ISSUER_ID" \
 	-skipPackagePluginValidation \
 	-skipMacroValidation \
-	DEVELOPMENT_TEAM=2VW2ZL88HK \
-	CODE_SIGN_STYLE=Automatic \
-	CODE_SIGN_IDENTITY="$identity" \
-	OTHER_CODE_SIGN_FLAGS=--timestamp
+	DEVELOPMENT_TEAM=2VW2ZL88HK
 
 xcodebuild -exportArchive \
 	-archivePath "$archive" \
@@ -92,7 +89,7 @@ notarize() {
 		--issuer "$APP_STORE_CONNECT_API_ISSUER_ID" \
 		--wait \
 		--timeout 30m \
-		--output-format json 2>&1)"
+		--output-format json)"
 	code=$?
 	set -e
 	printf '%s\n' "$result"
