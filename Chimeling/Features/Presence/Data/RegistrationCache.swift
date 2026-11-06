@@ -14,7 +14,9 @@ final class RegistrationCache {
 
     init() {
         let schema = Schema([DeviceRecord.self, RegisteredApp.self, KnownIcon.self])
-        let url = URL.applicationSupportDirectory.appending(path: "registration.store")
+        let url = URL.applicationSupportDirectory
+            .appending(path: Bundle.main.bundleIdentifier ?? "com.cairntale.Chimeling", directoryHint: .isDirectory)
+            .appending(path: "registration.store")
         do {
             container = try Self.open(schema: schema, url: url)
         } catch {
