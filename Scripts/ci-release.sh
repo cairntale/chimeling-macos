@@ -176,7 +176,7 @@ fi
 rm -rf "$out"
 mkdir -p "$out"
 zip="$out/Chimeling-$version.zip"
-dmg="$out/Chimeling-$version.dmg"
+dmg="$out/Chimeling.dmg"
 
 ditto -c -k --sequesterRsrc --keepParent "$app" "$zip"
 
