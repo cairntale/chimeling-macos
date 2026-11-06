@@ -220,11 +220,21 @@ if [ "$dry_run" = false ]; then
 	ditto -c -k --sequesterRsrc --keepParent "$app" "$zip"
 fi
 
-dmg_dir="$work/dmg"
-mkdir -p "$dmg_dir"
-ditto "$app" "$dmg_dir/Chimeling.app"
-ln -s /Applications "$dmg_dir/Applications"
-hdiutil create -volname Chimeling -srcfolder "$dmg_dir" -ov -format UDZO "$dmg"
+stage="$work/dmg-src"
+mkdir -p "$stage"
+ditto "$app" "$stage/Chimeling.app"
+git clone --depth 1 https://github.com/create-dmg/create-dmg.git "$work/create-dmg"
+"$work/create-dmg/create-dmg" \
+	--volname Chimeling \
+	--window-pos 200 120 \
+	--window-size 500 320 \
+	--icon-size 80 \
+	--icon "Chimeling.app" 125 175 \
+	--hide-extension "Chimeling.app" \
+	--app-drop-link 375 175 \
+	--no-internet-enable \
+	"$dmg" \
+	"$stage"
 codesign --timestamp --sign "$identity" "$dmg"
 
 if [ "$dry_run" = false ]; then
