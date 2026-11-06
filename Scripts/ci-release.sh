@@ -217,7 +217,6 @@ if [ "$dry_run" = false ]; then
 	sign_sparkle "$check_inbox" "$work/appcast-check.xml"
 	notarize "$zip"
 	xcrun stapler staple "$app"
-	ditto -c -k --sequesterRsrc --keepParent "$app" "$zip"
 fi
 
 stage="$work/dmg-src"
@@ -245,17 +244,14 @@ if [ "$dry_run" = false ]; then
 
 	publish_inbox="$work/sparkle-publish"
 	mkdir -p "$publish_inbox"
-	cp "$zip" "$publish_inbox/"
+	cp "$dmg" "$publish_inbox/"
 	sign_sparkle "$publish_inbox" "$out/appcast.xml"
 
-	notes="$work/notes.md"
-	printf 'Chimeling %s (%s)\n' "$version" "$build" >"$notes"
 	if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-		gh release upload "$RELEASE_TAG" "$dmg" "$zip" "$out/appcast.xml" --clobber
+		gh release upload "$RELEASE_TAG" "$dmg" "$out/appcast.xml" --clobber
 	else
-		gh release create "$RELEASE_TAG" "$dmg" "$zip" "$out/appcast.xml" \
-			--title "Chimeling $version" \
-			--notes-file "$notes"
+		gh release create "$RELEASE_TAG" "$dmg" "$out/appcast.xml" \
+			--title "$RELEASE_TAG"
 	fi
 fi
 
