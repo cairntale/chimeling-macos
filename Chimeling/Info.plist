@@ -24,5 +24,9 @@
 	<string>cNlfunsMCQ4E/+I1Rixw0E5Q7FuMgaP7sfwt/hUDj+E=</string>
 	<key>SUFeedURL</key>
 	<string>https://github.com/cairntale/chimeling-macos/releases/latest/download/appcast.xml</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledImpatientCheckInterval</key>
+	<integer>1209600</integer>
 </dict>
 </plist>

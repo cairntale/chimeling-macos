@@ -31,7 +31,7 @@ struct ChimelingApp: App {
         .menuBarExtraStyle(.menu)
 
         Settings {
-            SettingsView()
+            SettingsView(updater: updaterController.updater)
                 .environment(Clerk.shared)
                 .environment(appDelegate.settingsNavigation)
                 .environment(appDelegate.presenceService)

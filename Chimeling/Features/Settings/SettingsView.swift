@@ -1,9 +1,11 @@
 import AppKit
 import ClerkKit
+import Sparkle
 import SwiftUI
 
 struct SettingsView: View {
     @Environment(SettingsNavigation.self) private var navigation
+    let updater: SPUUpdater
 
     var body: some View {
         @Bindable var navigation = navigation
@@ -11,8 +13,8 @@ struct SettingsView: View {
             Tab("General", systemImage: "gearshape", value: SettingsTab.general) {
                 GeneralSettingsView()
             }
-            Tab("Square", systemImage: "square", value: SettingsTab.square) {
-                SquareSettingsView()
+            Tab("Updates", systemImage: "arrow.triangle.2.circlepath", value: SettingsTab.updates) {
+                UpdatesSettingsView(updater: updater)
             }
             Tab("About", systemImage: "info.circle", value: SettingsTab.about) {
                 AboutSettingsView()
@@ -28,8 +30,13 @@ struct SettingsView: View {
 }
 
 #Preview {
+    @Previewable @State var controller = SPUStandardUpdaterController(
+        startingUpdater: false,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
     let _ = Clerk.configure(publishableKey: ChimelingEnvironment.current.clerkPublishableKey)
-    SettingsView()
+    SettingsView(updater: controller.updater)
         .environment(Clerk.shared)
         .environment(SettingsNavigation())
         .environment(PresenceService())

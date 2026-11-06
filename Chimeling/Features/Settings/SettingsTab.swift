@@ -1,5 +1,5 @@
 enum SettingsTab: Hashable {
     case general
-    case square
+    case updates
     case about
 }
