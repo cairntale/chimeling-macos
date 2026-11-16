@@ -105,6 +105,8 @@ struct FilterSettingsView: View {
 
     private func chooseApps() {
         let panel = NSOpenPanel()
+        panel.identifier = NSUserInterfaceItemIdentifier("filter.choose-app")
+        panel.directoryURL = URL(fileURLWithPath: "/Applications", isDirectory: true)
         panel.allowsMultipleSelection = true
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
