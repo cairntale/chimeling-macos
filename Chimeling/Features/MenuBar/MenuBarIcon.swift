@@ -5,7 +5,7 @@ enum MenuBarIcon {
         switch status {
         case .signedOut:
             signedOut
-        case .error:
+        case .error, .filterProblem:
             error
         case nil:
             plain

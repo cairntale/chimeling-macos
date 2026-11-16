@@ -7,6 +7,7 @@ import os
 final class PresenceService {
     let livePresence: LivePresence
     let icons: AppIconProvider
+    let filter: FilterStore
     private(set) var lastError: RunError?
 
     @ObservationIgnored private let registration: Registration
@@ -29,22 +30,28 @@ final class PresenceService {
         let client = makeClient()
         let registration = Registration(client: client, cache: cache, icons: icons)
         let signedIn = SignInState()
+        let filter = FilterStore()
         let runner = ReportRunner(
             livePresence: livePresence,
             registration: registration,
             client: client,
+            filter: filter,
             isSignedIn: { signedIn.value }
         )
         let timer = ReportTimer(livePresence: livePresence, runner: runner)
 
         self.livePresence = livePresence
         self.icons = icons
+        self.filter = filter
         self.registration = registration
         self.signedIn = signedIn
         self.runner = runner
         self.timer = timer
         tracker = FocusedAppTracker(livePresence: livePresence, icons: icons)
         statusTracker = StatusTracker(livePresence: livePresence, onSuspend: {})
+        filter.onChange = {
+            timer.bell()
+        }
         livePresence.onChange = { presence in
             timer.onPresence(presence)
         }

@@ -9,6 +9,7 @@ struct MenuBarIconLabel: View {
         let status = MenuBarStatus(
             isLoaded: clerk.isLoaded,
             isSignedIn: clerk.session != nil,
+            hasFilterProblem: service.filter.isUnreadable,
             lastError: service.lastError
         )
         Image(nsImage: MenuBarIcon.image(for: status))

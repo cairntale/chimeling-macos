@@ -9,34 +9,30 @@ struct MenuBarContent: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        if let status = MenuBarStatus(
-            isLoaded: clerk.isLoaded,
-            isSignedIn: clerk.session != nil,
-            lastError: service.lastError
-        ) {
-            switch status {
-            case .signedOut:
+        if clerk.isLoaded {
+            if clerk.session == nil {
                 Button(action: signIn) {
-                    Label {
-                        Text("Sign in…")
-                    } icon: {
-                        Image(nsImage: MenuStatusDot.image(for: status))
-                    }
+                    statusLabel("Sign in…", status: .signedOut)
                 }
                 .labelStyle(.titleAndIcon)
-            case .error(let error):
-                Button {
-                    PresenceErrorAlert.present(message: error.message)
-                } label: {
-                    Label {
-                        Text("An error occurred")
-                    } icon: {
-                        Image(nsImage: MenuStatusDot.image(for: status))
+                Divider()
+            } else if service.filter.isUnreadable || service.lastError != nil {
+                if service.filter.isUnreadable {
+                    Button(action: showFilterProblem) {
+                        statusLabel("Filter needs attention", status: .filterProblem)
                     }
+                    .labelStyle(.titleAndIcon)
                 }
-                .labelStyle(.titleAndIcon)
+                if let error = service.lastError {
+                    Button {
+                        PresenceErrorAlert.present(message: error.message)
+                    } label: {
+                        statusLabel("An error occurred", status: .error)
+                    }
+                    .labelStyle(.titleAndIcon)
+                }
+                Divider()
             }
-            Divider()
         }
 
         FocusedAppMenuRow(service: service)
@@ -49,6 +45,18 @@ struct MenuBarContent: View {
 
         Button("Quit", action: quit)
             .keyboardShortcut("q")
+    }
+
+    private func statusLabel(_ title: LocalizedStringKey, status: MenuBarStatus) -> some View {
+        Label {
+            Text(title)
+        } icon: {
+            Image(nsImage: MenuStatusDot.image(for: status))
+        }
+    }
+
+    private func showFilterProblem() {
+        OpenSettings.activate(openSettings, tab: .filter)
     }
 
     private func signIn() {

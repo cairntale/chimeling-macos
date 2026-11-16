@@ -13,6 +13,9 @@ struct SettingsView: View {
             Tab("General", systemImage: "gearshape", value: SettingsTab.general) {
                 GeneralSettingsView()
             }
+            Tab("Filter", systemImage: "line.3.horizontal.decrease.circle", value: SettingsTab.filter) {
+                FilterSettingsView()
+            }
             Tab("Updates", systemImage: "arrow.triangle.2.circlepath", value: SettingsTab.updates) {
                 UpdatesSettingsView(updater: updater)
             }

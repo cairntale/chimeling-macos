@@ -5,7 +5,7 @@ enum MenuStatusDot {
         switch status {
         case .signedOut:
             signedOut
-        case .error:
+        case .error, .filterProblem:
             error
         }
     }

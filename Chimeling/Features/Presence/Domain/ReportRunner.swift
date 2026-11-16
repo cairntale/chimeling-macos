@@ -18,6 +18,7 @@ final class ReportRunner {
     private let livePresence: LivePresence
     private let registration: Registration
     private let client: any APIProtocol
+    private let filter: FilterStore
     private var chain: Task<Result<Void, RunError>, Never>?
     private var isSignedIn: () -> Bool
 
@@ -25,11 +26,13 @@ final class ReportRunner {
         livePresence: LivePresence,
         registration: Registration,
         client: any APIProtocol,
+        filter: FilterStore,
         isSignedIn: @escaping () -> Bool
     ) {
         self.livePresence = livePresence
         self.registration = registration
         self.client = client
+        self.filter = filter
         self.isSignedIn = isSignedIn
     }
 
@@ -95,50 +98,51 @@ final class ReportRunner {
     private func runThrowing() async throws {
         guard isSignedIn() else { return }
 
-        var presence = livePresence.current
-        let clearing = presence.status == .offline
-
-        if !clearing {
-            _ = try await registration.ensureDeviceID()
-        }
-
-        var outcome = try await registration.run(for: presence)
         var loops = 0
-        while !outcome.alreadySatisfied {
+        while true {
+            let presence = livePresence.current
+
+            // Decided before registration, because registering an app uploads its name and icon.
+            if PresenceFilter.decide(presence, filter: filter) == .clear {
+                try await clearThrowing()
+                return
+            }
+
+            let outcome = try await registration.run(for: presence)
+            if outcome.alreadySatisfied {
+                _ = try await registration.ensureDeviceID()
+                if PresenceFilter.decide(livePresence.current, filter: filter) == .clear {
+                    try await clearThrowing()
+                    return
+                }
+                try await report(presence, appID: outcome.appID)
+                return
+            }
+
             loops += 1
             if loops > PresenceTiming.readyLoopCap {
                 throw RunError.failed("registration did not become ready")
             }
-            presence = livePresence.current
-            outcome = try await registration.run(for: presence)
         }
+    }
 
-        let report = PresenceFilter.filter(presence, appID: outcome.appID)
-        let deviceID = try registration.cachedDeviceID()
-
-        if report.status == .offline {
-            guard let deviceID, !deviceID.isEmpty else { return }
-            let output = try await client.clearDevicePresence(.init(path: .init(deviceId: deviceID)))
-            try await interpretClear(output)
-            return
-        }
-
-        guard let deviceID, !deviceID.isEmpty else {
+    private func report(_ presence: Presence, appID: String?) async throws {
+        guard let deviceID = try registration.cachedDeviceID(), !deviceID.isEmpty else {
             throw RunError.failed("device id is missing")
         }
         let status: Operations.ReportDevicePresence.Input.Body.JsonPayload.StatusPayload =
-            switch report.status {
+            switch presence.status {
             case .online: .online
             case .idle: .idle
             case .offline:
                 throw RunError.failed("offline is not a reportable status")
             }
-        let activity = report.activity.map {
-            Operations.ReportDevicePresence.Input.Body.JsonPayload.ActivityPayload(
-                appId: $0.appID,
-                startedAt: $0.startedAt
-            )
-        }
+        let activity: Operations.ReportDevicePresence.Input.Body.JsonPayload.ActivityPayload? =
+            if let live = presence.activity, let appID {
+                .init(appId: appID, startedAt: live.startedAt)
+            } else {
+                nil
+            }
         let output = try await client.reportDevicePresence(
             .init(
                 path: .init(deviceId: deviceID),
@@ -161,6 +165,7 @@ final class ReportRunner {
         }
     }
 
+    /// Does not consult the filter. Sign-out has to clear a presence the filter would still report.
     private func clearThrowing() async throws {
         let deviceID = try registration.cachedDeviceID()
         guard let deviceID, !deviceID.isEmpty else { return }

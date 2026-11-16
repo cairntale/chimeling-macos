@@ -1,23 +1,19 @@
 import Foundation
 
-nonisolated struct ReportableActivity: Sendable, Equatable {
-    var appID: String
-    var startedAt: Date
-}
-
-nonisolated struct ReportablePresence: Sendable, Equatable {
-    var status: PresenceStatus
-    var activity: ReportableActivity?
+nonisolated enum PresenceDecision: Equatable {
+    case clear
+    case report
 }
 
 enum PresenceFilter {
-    nonisolated static func filter(_ presence: Presence, appID: String?) -> ReportablePresence {
-        let activity: ReportableActivity? =
-            if let live = presence.activity, let appID {
-                ReportableActivity(appID: appID, startedAt: live.startedAt)
-            } else {
-                nil
-            }
-        return ReportablePresence(status: presence.status, activity: activity)
+    /// A filtered presence is cleared rather than left to expire, so nothing stale lingers on the server.
+    static func decide(_ presence: Presence, filter: FilterStore) -> PresenceDecision {
+        if presence.status == .offline || filter.isUnreadable {
+            return .clear
+        }
+        if let activity = presence.activity, filter.excludes(activity.identifier) {
+            return .clear
+        }
+        return .report
     }
 }
