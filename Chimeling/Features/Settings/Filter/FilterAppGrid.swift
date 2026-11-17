@@ -10,12 +10,12 @@ struct FilterAppGrid: NSViewRepresentable {
     var onRemoveSelection: () -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(selection: $selection, onDrop: onDrop, onRemoveSelection: onRemoveSelection)
+        Coordinator(selection: $selection, onRemoveSelection: onRemoveSelection)
     }
 
     func makeNSView(context: Context) -> FilterAppCollectionView {
         let layout = NSCollectionViewFlowLayout()
-        layout.itemSize = NSSize(width: 104, height: Metrics.itemHeight)
+        layout.itemSize = NSSize(width: Metrics.itemWidth, height: Metrics.itemHeight)
         layout.minimumInteritemSpacing = Metrics.spacing
         layout.minimumLineSpacing = Metrics.spacing
         layout.sectionInset = NSEdgeInsetsZero
@@ -43,8 +43,8 @@ struct FilterAppGrid: NSViewRepresentable {
         let coordinator = context.coordinator
         coordinator.identifiers = identifiers
         coordinator.selection = $selection
-        coordinator.onDrop = onDrop
         coordinator.onRemoveSelection = onRemoveSelection
+        view.onDrop = onDrop
         view.onRemoveSelection = onRemoveSelection
 
         if coordinator.rendered != identifiers {
@@ -74,6 +74,7 @@ struct FilterAppGrid: NSViewRepresentable {
     private enum Metrics {
         static let columns: CGFloat = 4
         static let spacing: CGFloat = 8
+        static let itemWidth: CGFloat = 104
         static let itemHeight: CGFloat = 108
         static let minimumHeight: CGFloat = 180
     }
@@ -82,13 +83,11 @@ struct FilterAppGrid: NSViewRepresentable {
         var identifiers: [String] = []
         var rendered: [String] = []
         var selection: Binding<Set<String>>
-        var onDrop: ([URL]) -> Void
         var onRemoveSelection: () -> Void
         var applyingSelection = false
 
-        init(selection: Binding<Set<String>>, onDrop: @escaping ([URL]) -> Void, onRemoveSelection: @escaping () -> Void) {
+        init(selection: Binding<Set<String>>, onRemoveSelection: @escaping () -> Void) {
             self.selection = selection
-            self.onDrop = onDrop
             self.onRemoveSelection = onRemoveSelection
         }
 
@@ -110,8 +109,9 @@ struct FilterAppGrid: NSViewRepresentable {
             sizeForItemAt indexPath: IndexPath
         ) -> NSSize {
             let gaps = Metrics.spacing * (Metrics.columns - 1)
-            let itemWidth = floor((collectionView.bounds.width - gaps) / Metrics.columns)
-            return NSSize(width: max(itemWidth, 1), height: Metrics.itemHeight)
+            let width = collectionView.bounds.width
+            if width <= gaps { return NSSize(width: Metrics.itemWidth, height: Metrics.itemHeight) }
+            return NSSize(width: floor((width - gaps) / Metrics.columns), height: Metrics.itemHeight)
         }
 
         func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) {
@@ -128,7 +128,7 @@ struct FilterAppGrid: NSViewRepresentable {
             proposedIndexPath proposedDropIndexPath: AutoreleasingUnsafeMutablePointer<NSIndexPath>,
             dropOperation proposedDropOperation: UnsafeMutablePointer<NSCollectionView.DropOperation>
         ) -> NSDragOperation {
-            guard draggedApps(from: draggingInfo) != nil else { return [] }
+            guard filterDroppedApps(from: draggingInfo) != nil else { return [] }
             proposedDropOperation.pointee = .on
             return .copy
         }
@@ -139,8 +139,8 @@ struct FilterAppGrid: NSViewRepresentable {
             indexPath: IndexPath,
             dropOperation: NSCollectionView.DropOperation
         ) -> Bool {
-            guard let apps = draggedApps(from: draggingInfo) else { return false }
-            onDrop(apps)
+            guard let apps = filterDroppedApps(from: draggingInfo) else { return false }
+            (collectionView as? FilterAppCollectionView)?.onDrop?(apps)
             return true
         }
 
@@ -157,18 +157,11 @@ struct FilterAppGrid: NSViewRepresentable {
             guard selection.wrappedValue != selected else { return }
             selection.wrappedValue = selected
         }
-
-        private func draggedApps(from draggingInfo: NSDraggingInfo) -> [URL]? {
-            let urls = draggingInfo.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [
-                .urlReadingFileURLsOnly: true
-            ]) as? [URL]
-            let apps = urls?.filter { AppBundle.identifier(at: $0) != nil } ?? []
-            return apps.isEmpty ? nil : apps
-        }
     }
 }
 
 final class FilterAppCollectionView: NSCollectionView {
+    var onDrop: (([URL]) -> Void)?
     var onRemoveSelection: (() -> Void)?
     var itemMenu: NSMenu?
     private var keyWindowObservers: [NSObjectProtocol] = []
@@ -243,13 +236,14 @@ final class FilterAppItem: NSCollectionViewItem {
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("FilterAppItem")
 
     override func loadView() {
-        let container = NSView()
+        let container = FilterAppItemView()
         container.wantsLayer = true
 
         let image = NSImageView()
-        image.imageScaling = .scaleProportionallyDown
+        image.imageScaling = .scaleProportionallyUpOrDown
         image.imageAlignment = .alignCenter
         image.translatesAutoresizingMaskIntoConstraints = false
+        image.unregisterDraggedTypes()
 
         let name = NSTextField(wrappingLabelWithString: "")
         name.isSelectable = false
@@ -257,6 +251,7 @@ final class FilterAppItem: NSCollectionViewItem {
         name.maximumNumberOfLines = 2
         name.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         name.translatesAutoresizingMaskIntoConstraints = false
+        name.unregisterDraggedTypes()
         if let cell = name.cell as? NSTextFieldCell {
             cell.truncatesLastVisibleLine = true
         }
@@ -301,5 +296,54 @@ final class FilterAppItem: NSCollectionViewItem {
             ? NSColor.selectedContentBackgroundColor.cgColor
             : (isSelected ? NSColor.unemphasizedSelectedContentBackgroundColor.cgColor : nil)
         textField?.textColor = emphasized ? .alternateSelectedControlTextColor : .labelColor
+    }
+}
+
+private func filterDroppedApps(from info: NSDraggingInfo) -> [URL]? {
+    let urls = info.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [
+        .urlReadingFileURLsOnly: true
+    ]) as? [URL]
+    let apps = urls?.filter { AppBundle.identifier(at: $0) != nil } ?? []
+    return apps.isEmpty ? nil : apps
+}
+
+private final class FilterAppItemView: NSView {
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        registerForDraggedTypes([.fileURL])
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        registerForDraggedTypes([.fileURL])
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        super.hitTest(point) == nil ? nil : self
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        filterDroppedApps(from: sender) == nil ? [] : .copy
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        draggingEntered(sender)
+    }
+
+    override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        filterDroppedApps(from: sender) != nil
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard let apps = filterDroppedApps(from: sender) else { return false }
+        var ancestor = superview
+        while let view = ancestor {
+            if let grid = view as? FilterAppCollectionView {
+                grid.onDrop?(apps)
+                return true
+            }
+            ancestor = view.superview
+        }
+        return false
     }
 }
