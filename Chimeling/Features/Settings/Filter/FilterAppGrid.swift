@@ -171,6 +171,17 @@ struct FilterAppGrid: NSViewRepresentable {
 final class FilterAppCollectionView: NSCollectionView {
     var onRemoveSelection: (() -> Void)?
     var itemMenu: NSMenu?
+    private var keyWindowObservers: [NSObjectProtocol] = []
+
+    deinit {
+        stopObservingKeyWindow()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        observeKeyWindow()
+        refreshSelectionAppearance()
+    }
 
     override func menu(for event: NSEvent) -> NSMenu? {
         let point = convert(event.locationInWindow, from: nil)
@@ -206,6 +217,25 @@ final class FilterAppCollectionView: NSCollectionView {
         for indexPath in indexPathsForVisibleItems() {
             (item(at: indexPath) as? FilterAppItem)?.applySelectionAppearance()
         }
+    }
+
+    private func observeKeyWindow() {
+        stopObservingKeyWindow()
+        guard let window else { return }
+        keyWindowObservers = [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification].map { name in
+            NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.refreshSelectionAppearance()
+                }
+            }
+        }
+    }
+
+    private func stopObservingKeyWindow() {
+        for observer in keyWindowObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        keyWindowObservers.removeAll()
     }
 }
 
@@ -263,11 +293,13 @@ final class FilterAppItem: NSCollectionViewItem {
     }
 
     func applySelectionAppearance() {
-        let emphasized = isSelected && collectionView?.isFirstResponder == true
+        let emphasized = isSelected
+            && collectionView?.isFirstResponder == true
+            && collectionView?.window?.isKeyWindow == true
         view.layer?.cornerRadius = 6
         view.layer?.backgroundColor = emphasized
             ? NSColor.selectedContentBackgroundColor.cgColor
             : (isSelected ? NSColor.unemphasizedSelectedContentBackgroundColor.cgColor : nil)
-        textField?.textColor = emphasized ? .selectedTextColor : .labelColor
+        textField?.textColor = emphasized ? .alternateSelectedControlTextColor : .labelColor
     }
 }
