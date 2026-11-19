@@ -11,12 +11,5 @@ enum OpenSettings {
         }
         NSApp.activate()
         openSettings()
-        Task {
-            await Task.yield()
-            for window in NSApp.windows
-            where window.isVisible && window.canBecomeKey && window.styleMask.contains(.titled) {
-                window.makeKeyAndOrderFront(nil)
-            }
-        }
     }
 }

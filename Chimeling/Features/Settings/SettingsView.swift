@@ -1,4 +1,3 @@
-import AppKit
 import ClerkKit
 import Sparkle
 import SwiftUI
@@ -24,11 +23,6 @@ struct SettingsView: View {
             }
         }
         .frame(width: 500, height: 500)
-        .onAppear(perform: activate)
-    }
-
-    private func activate() {
-        NSApp.activate()
     }
 }
 
