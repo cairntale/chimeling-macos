@@ -4,6 +4,7 @@ struct GeneralSettingsView: View {
     var body: some View {
         Form {
             AccountSettingsSection()
+            OpenAtLoginSection()
         }
         .settingsTabForm()
     }
