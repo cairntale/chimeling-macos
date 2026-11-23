@@ -14,27 +14,18 @@ extension AuthenticationMiddleware: ClientMiddleware {
         operationID: String,
         next: @concurrent @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)
     ) async throws -> (HTTPResponse, HTTPBody?) {
+        let token = try await tokenProvider(false)
+        guard let token, !token.isEmpty else {
+            return Self.missingToken()
+        }
         var request = request
-        if let token = try await tokenProvider(false) {
-            request.headerFields[.authorization] = "Bearer \(token)"
-        }
-        let (response, responseBody) = try await next(request, body, baseURL)
-        guard response.status == .unauthorized else {
-            return (response, responseBody)
-        }
-        guard body.map(\.iterationBehavior) != .single else {
-            return (response, responseBody)
-        }
-        let fresh: String?
-        do {
-            fresh = try await tokenProvider(true)
-        } catch {
-            return (response, responseBody)
-        }
-        guard let fresh else {
-            return (response, responseBody)
-        }
-        request.headerFields[.authorization] = "Bearer \(fresh)"
+        request.headerFields[.authorization] = "Bearer \(token)"
         return try await next(request, body, baseURL)
+    }
+
+    private static func missingToken() -> (HTTPResponse, HTTPBody?) {
+        var response = HTTPResponse(status: .unauthorized)
+        response.headerFields[.contentType] = "text/plain"
+        return (response, HTTPBody("Unauthorized: missing session token"))
     }
 }

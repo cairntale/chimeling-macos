@@ -95,7 +95,8 @@ final class PresenceService {
         }
 
         Task {
-            _ = await runner.run(timeout: PresenceTiming.offlineTimeout)
+            let result = await runner.run(timeout: PresenceTiming.offlineTimeout)
+            handle(result)
             replyOnce()
         }
         Task {
@@ -111,15 +112,21 @@ final class PresenceService {
     }
 
     private func applySignIn(_ isSignedIn: Bool) async {
-        signedIn.value = isSignedIn
-        if isSignedIn {
-            do {
-                try await registration.syncDeviceName()
-            } catch {
-                Self.log.warning("device name sync failed: \(error.localizedDescription, privacy: .public)")
+        guard isSignedIn else {
+            stopReporting()
+            return
+        }
+        signedIn.value = true
+        do {
+            try await registration.syncDeviceName()
+        } catch {
+            Self.log.warning("device name sync failed: \(error.localizedDescription, privacy: .public)")
+            if let error = error as? RegistrationError, case .unauthorized = error {
+                stopReporting()
+                return
             }
         }
-        timer.setSignedIn(isSignedIn)
+        timer.setSignedIn(true)
     }
 
     private func startShortDeadlineReport() {
@@ -132,7 +139,8 @@ final class PresenceService {
         }
         Task { [weak self] in
             guard let self else { return }
-            _ = await runner.run(timeout: PresenceTiming.offlineTimeout)
+            let result = await runner.run(timeout: PresenceTiming.offlineTimeout)
+            handle(result)
             if let activity = sleepActivity {
                 ProcessInfo.processInfo.endActivity(activity)
                 sleepActivity = nil
@@ -145,9 +153,17 @@ final class PresenceService {
         case .success:
             lastError = nil
         case .failure(let error):
+            if error == .auth {
+                stopReporting()
+            }
             lastError = error
             Self.log.warning("presence report failed: \(error.message, privacy: .public)")
         }
+    }
+
+    private func stopReporting() {
+        signedIn.value = false
+        timer.setSignedIn(false)
     }
 }
 

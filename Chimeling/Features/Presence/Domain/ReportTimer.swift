@@ -90,6 +90,7 @@ final class ReportTimer {
     }
 
     private func scheduleRetry() {
+        guard signedIn else { return }
         let delay = retryDelay
         retryDelay = min(retryDelay * 2, PresenceTiming.retryCap)
         retryTask?.cancel()
@@ -117,8 +118,8 @@ final class ReportTimer {
                 retryDelay = PresenceTiming.retryStart
                 cancelRetry()
             case .failure:
-                scheduleRetry()
                 onFinished?(result)
+                scheduleRetry()
                 breakLoop()
                 return
             }

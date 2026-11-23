@@ -44,6 +44,9 @@ final class Registration {
     private let icons: AppIconProvider
     private var repairedDeviceID: String?
     private var nameSynced = false
+    /// Accepted by the server, not in the Keychain yet.
+    private var pendingDevice: (id: String, name: String)?
+    private var deviceIDTask: Task<String, Error>?
 
     init(client: any APIProtocol, cache: RegistrationCache, icons: AppIconProvider) {
         self.client = client
@@ -56,9 +59,26 @@ final class Registration {
     }
 
     func ensureDeviceID() async throws -> String {
+        if let deviceIDTask {
+            return try await deviceIDTask.value
+        }
+        let task = Task { @MainActor in
+            defer { self.deviceIDTask = nil }
+            return try await self.loadOrRegisterDeviceID()
+        }
+        deviceIDTask = task
+        return try await task.value
+    }
+
+    private func loadOrRegisterDeviceID() async throws -> String {
         if let id = try cachedDeviceID(), !id.isEmpty {
+            pendingDevice = nil
             try cache.load(deviceID: id)
             return id
+        }
+        if let pendingDevice {
+            try commitPendingDevice(pendingDevice.id, name: pendingDevice.name)
+            return pendingDevice.id
         }
 
         let name = DeviceName.current
@@ -68,16 +88,14 @@ final class Registration {
         switch output {
         case .created(let created):
             let device = try created.body.json
-            try keychain { try DeviceIdentity.save(device.id) }
-            try cache.load(deviceID: device.id)
-            try cache.setDeviceName(name)
+            try commitPendingDevice(device.id, name: name)
             return device.id
         case .unauthorized:
             throw RegistrationError.unauthorized
         case .badRequest:
             throw RegistrationError.requestFailed(operation: "registerDevice", status: 400)
         case .undocumented(let status, _):
-            throw RegistrationError.requestFailed(operation: "registerDevice", status: status)
+            try reject("registerDevice", status: status)
         }
     }
 
@@ -104,7 +122,7 @@ final class Registration {
         case .badRequest:
             throw RegistrationError.requestFailed(operation: "updateDevice", status: 400)
         case .undocumented(let status, _):
-            throw RegistrationError.requestFailed(operation: "updateDevice", status: status)
+            try reject("updateDevice", status: status)
         }
     }
 
@@ -116,6 +134,7 @@ final class Registration {
     }
 
     func invalidateDevice() async throws {
+        pendingDevice = nil
         try keychain { try DeviceIdentity.delete() }
         nameSynced = false
         let deviceID = try await ensureDeviceID()
@@ -196,7 +215,7 @@ final class Registration {
         case .unauthorized, .forbidden:
             throw RegistrationError.unauthorized
         case .undocumented(let status, _):
-            throw RegistrationError.requestFailed(operation: "listApps", status: status)
+            try reject("listApps", status: status)
         }
     }
 
@@ -213,7 +232,7 @@ final class Registration {
         case .notFound:
             break
         case .undocumented(let status, _):
-            throw RegistrationError.requestFailed(operation: "checkIconExistence", status: status)
+            try reject("checkIconExistence", status: status)
         }
 
         try cache.dropIcon(hash)
@@ -229,7 +248,7 @@ final class Registration {
         case .unauthorized:
             throw RegistrationError.unauthorized
         case .undocumented(let status, _):
-            throw RegistrationError.requestFailed(operation: "registerIcon", status: status)
+            try reject("registerIcon", status: status)
         }
     }
 
@@ -268,7 +287,7 @@ final class Registration {
         case .badRequest:
             throw RegistrationError.requestFailed(operation: "registerApp", status: 400)
         case .undocumented(let status, _):
-            throw RegistrationError.requestFailed(operation: "registerApp", status: status)
+            try reject("registerApp", status: status)
         }
     }
 
@@ -307,8 +326,23 @@ final class Registration {
         case .badRequest:
             throw RegistrationError.requestFailed(operation: "updateApp", status: 400)
         case .undocumented(let status, _):
-            throw RegistrationError.requestFailed(operation: "updateApp", status: status)
+            try reject("updateApp", status: status)
         }
+    }
+
+    private func commitPendingDevice(_ id: String, name: String) throws {
+        pendingDevice = (id, name)
+        try keychain { try DeviceIdentity.save(id) }
+        pendingDevice = nil
+        try cache.load(deviceID: id)
+        try cache.setDeviceName(name)
+    }
+
+    private func reject(_ operation: String, status: Int) throws -> Never {
+        if status == 401 {
+            throw RegistrationError.unauthorized
+        }
+        throw RegistrationError.requestFailed(operation: operation, status: status)
     }
 
     private func keychain<T>(_ operation: () throws -> T) throws -> T {

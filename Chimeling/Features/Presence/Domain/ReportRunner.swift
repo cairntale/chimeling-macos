@@ -96,10 +96,9 @@ final class ReportRunner {
     }
 
     private func runThrowing() async throws {
-        guard isSignedIn() else { return }
-
         var loops = 0
         while true {
+            guard isSignedIn() else { return }
             let presence = livePresence.current
 
             // Decided before registration, because registering an app uploads its name and icon.
@@ -109,8 +108,10 @@ final class ReportRunner {
             }
 
             let outcome = try await registration.run(for: presence)
+            guard isSignedIn() else { return }
             if outcome.alreadySatisfied {
                 _ = try await registration.ensureDeviceID()
+                guard isSignedIn() else { return }
                 if PresenceFilter.decide(livePresence.current, filter: filter) == .clear {
                     try await clearThrowing()
                     return
@@ -193,7 +194,7 @@ final class ReportRunner {
         case .badRequest:
             throw RunError.failed("report presence failed: 400")
         case .undocumented(let status, _):
-            throw RunError.failed("report presence failed: \(status)")
+            try reject("report presence", status: status)
         }
     }
 
@@ -206,8 +207,15 @@ final class ReportRunner {
         case .badRequest:
             throw RunError.failed("clear presence failed: 400")
         case .undocumented(let status, _):
-            throw RunError.failed("clear presence failed: \(status)")
+            try reject("clear presence", status: status)
         }
+    }
+
+    private func reject(_ operation: String, status: Int) throws -> Never {
+        if status == 401 {
+            throw RunError.auth
+        }
+        throw RunError.failed("\(operation) failed: \(status)")
     }
 
     private func classify(_ error: RegistrationError) -> RunError {
